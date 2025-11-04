@@ -261,3 +261,156 @@ This setup provides a robust, local data pipeline for IoT/sensor projects:
 You can expand by adding more devices (duplicate/add more `inputs.mqtt_consumer` blocks), experiment with dashboards, or integrate notifications/alerts.
 
 ---
+
+# AWS InfluxDB, Telegraf, Grafana, and S3 Backup Setup
+
+This guide documents the steps to set up an EC2-based InfluxDB/Telegraf/Grafana stack with S3 backups, ready for Grafana monitoring and Pi telemetry.
+
+## IAM Setup
+
+### 1. User Groups
+- **Name:** Admins
+- **Policy:** `AdministratorAccess`
+
+### 2. Users
+- **User name:** `<User1_admin>`
+- **AWS Console access:** Checked
+- **Console Password:** `<console_pass>`
+- **Console sign-in URL:** [https://temperate.signin.aws.amazon.com/console](https://temperate.signin.aws.amazon.com/console)
+- **MFA:** `<My_auth>`
+
+### 3. Roles
+- **Trusted entity type:** AWS service
+- **Use case:** EC2 → EC2
+- **Permissions policies:** `AmazonS3FullAccess`
+- **Role name:** `EC2-S3-Backup-Role`
+- **Role ARN:** `arn:aws:iam::<AWS_ID>:role/EC2-S3-Backup-Role`
+- **Instance profile ARN:** `arn:aws:iam::<AWS_ID>:instance-profile/EC2-S3-Backup-Role`
+
+## EC2 Instance Setup
+
+- **Region:** Asia Pacific (Mumbai) `ap-south-1`
+- **Instance name:** `<inhouse_webserver_unique_token>`
+- **OS (AMI):** Ubuntu Server 24.04 LTS
+- **Instance type:** `t3.micro`
+- **Key Pair:** `<inhousekey>`
+- **Security Group:**
+    - **SSH:** My IP
+    - **HTTP, HTTPS**
+    - **Custom TCP (add after launch):**
+        - Port 1883 (Telegraf) — My IP
+        - Port 8086 (InfluxDB) — My IP
+        - Port 3000 (Grafana) — My IP
+
+### EC2 Setup Steps
+
+1. During launch, configure storage as required.
+2. **Advanced:** Attach `EC2-S3-Backup-Role` as IAM instance profile.
+3. Launch instance.
+4. Post-launch:
+    - Actions > Security > Modify IAM role > select `EC2-S3-Backup-Role`.
+5. Allocate and associate an Elastic IP:
+    - **IPv4 address:** `<ELASTIC_IP>`
+6. Edit security group (launch-wizard-1) to add inbound rules for ports 1883, 8086, 3000 as above.
+
+## S3 Backup Setup
+
+1. **Create Bucket**  
+   - Go to S3 > Buckets > Create bucket  
+   - **Region:** `ap-south-1`
+   - **Type:** General purpose
+   - **Name:** `<AWS_ID>influx-backups-inhouse`
+   - **Object ownership:** ACLs disabled
+   - **Block all public access:** Enabled
+   - Create bucket
+
+2. **Bucket Lifecycle Rule**  
+   - S3 > Buckets > `<AWS_ID>-influx-backups-inhouse` > Management > Lifecycle rules > Create rule:
+     - **Name:** `lifecycle_1`
+     - **Action:** Transition current versions to Glacier Flexible Retrieval after 30 days
+
+## InfluxDB, Telegraf & Grafana Installation on EC2
+
+### 1. SSH into EC2
+
+On your machine:
+```sh
+cd C:\Users\<NAME>\Desktop\aws
+ssh -i <inhousekey.pem> ubuntu@<ELASTIC_IP>
+```
+
+### 2. Install InfluxDB 2.x
+
+```sh
+wget -qO- https://repos.influxdata.com/influxdata-archive_compat.key | gpg --dearmor | sudo tee /usr/share/keyrings/influxdb.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/influxdb.gpg] https://repos.influxdata.com/debian bookworm stable" | sudo tee /etc/apt/sources.list.d/influxdb.list
+sudo apt update
+sudo apt install influxdb2 -y
+sudo systemctl enable influxdb
+sudo systemctl start influxdb
+```
+
+### 3. Install Telegraf
+
+```sh
+sudo apt install telegraf -y
+sudo systemctl enable --now telegraf
+```
+
+### 4. Optional: Install Grafana (self-hosted)
+
+```sh
+sudo apt install -y apt-transport-https software-properties-common
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+sudo apt update
+sudo apt install grafana -y
+sudo systemctl enable --now grafana-server
+```
+
+Or, use Amazon Managed Grafana (no server to manage, easier scaling, SSO, less maintenance).
+
+---
+
+## InfluxDB Configuration
+
+- **URL:** `http://<ELASTIC_IP:8086`
+- **Username:** `<user_influxdb>`
+- **Password:** `<pass_influxdb>`
+- **Org:** `<YOUR_CLOUD_ORG>`
+- **Bucket:** `<YOUR_CLOUD_BUCKET>`
+- **API Token:**  
+  `<YOUR_API_TOKEN>`
+
+## Telegraf Output Configuration
+
+On the device (for example, a Raspberry Pi), open Telegraf config:
+
+```sh
+sudo nano /etc/telegraf/telegraf.conf
+```
+
+Add at the end:
+
+```toml
+# Output: remote influxdb (cloud)
+[[outputs.influxdb_v2]]
+  urls = ["http://<ELASTIC_IP>:8086"]
+  token = "<YOUR_CLOUD_API_TOKEN>"
+  organization = "<YUR_CLOUD_ORG>"
+  bucket = "<YOUR_CLOUD_BUCKET>"
+```
+
+---
+
+## Ports and Firewall (Security Group)
+
+- **SSH (22):** My IP
+- **HTTP (80), HTTPS (443):** Open as needed
+- **Telegraf (1883):** My IP
+- **InfluxDB (8086):** My IP
+- **Grafana (3000):** My IP
+
+---
+
+**End of Guide**
