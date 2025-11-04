@@ -276,7 +276,7 @@ This guide documents the steps to set up an EC2-based InfluxDB/Telegraf/Grafana 
 - **User name:** `<User1_admin>`
 - **AWS Console access:** Checked
 - **Console Password:** `<console_pass>`
-- **Console sign-in URL:** [https://temperate.signin.aws.amazon.com/console](https://temperate.signin.aws.amazon.com/console)
+- **Console sign-in URL:** [https://<root_user>.signin.aws.amazon.com/console]
 - **MFA:** `<My_auth>`
 
 ### 3. Roles
