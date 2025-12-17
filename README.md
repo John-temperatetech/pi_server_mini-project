@@ -416,4 +416,155 @@ Add at the end:
 
 ---
 
+# Raspberry Pi Static IP Configuration (NetworkManager)
+
+## Context
+
+This documents the exact steps and findings from configuring a static local IP address on a Raspberry Pi running a NetworkManager/netplan-based setup (dhcpcd not present).
+
+---
+
+## Initial Goal
+
+Assign a fixed local IP address to the Raspberry Pi so it can act as a reliable local server.
+
+Target configuration:
+
+* Interface: `wlan0`
+* Static IP: `192.168.1.12/24`
+* Gateway: `192.168.1.1`
+* DNS: `192.168.1.1`, `8.8.8.8`
+
+---
+
+## Attempt 1: dhcpcd (Not Applicable)
+
+Edited:
+
+```
+sudo nano /etc/dhcpcd.conf
+```
+
+Configuration added:
+
+```
+interface wlan0
+static ip_address=192.168.1.12/24
+static routers=192.168.1.1
+static domain_name_servers=192.168.1.1 8.8.8.8
+```
+
+Restart attempt:
+
+```
+sudo systemctl restart dhcpcd
+```
+
+Result:
+
+```
+Failed to restart dhcpcd.service: Unit dhcpcd.service not found.
+```
+
+Conclusion:
+
+* `dhcpcd` is not installed or used on this system.
+* The system is managed by NetworkManager via netplan.
+
+---
+
+## Network State Verification
+
+Check device status:
+
+```
+nmcli device status
+```
+
+Output:
+
+```
+DEVICE         TYPE      STATE        CONNECTION
+wlan0          wifi      connected    netplan-wlan0-temperatetech24g
+lo             loopback  connected    lo
+p2p-dev-wlan0  wifi-p2p  disconnected --
+eth0           ethernet  unavailable  --
+```
+
+List connections:
+
+```
+sudo nmcli connection show
+```
+
+Relevant connection:
+
+```
+netplan-wlan0-temperatetech24g  wifi  wlan0
+```
+
+---
+
+## Correct Method: NetworkManager (nmcli)
+
+Apply static IPv4 configuration:
+
+```
+sudo nmcli connection modify "netplan-wlan0-temperatetech24g" \
+  ipv4.method manual \
+  ipv4.addresses 192.168.1.12/24 \
+  ipv4.gateway 192.168.1.1 \
+  ipv4.dns "192.168.1.1 8.8.8.8"
+```
+
+Bring connection down and up (required):
+
+```
+sudo nmcli connection down "netplan-wlan0-temperatetech24g"
+sudo nmcli connection up "netplan-wlan0-temperatetech24g"
+```
+
+---
+
+## Verification
+
+Check assigned IP:
+
+```
+ip addr show wlan0
+```
+
+Expected:
+
+```
+inet 192.168.1.12/24
+```
+
+Check routing:
+
+```
+ip route
+```
+
+Expected default route:
+
+```
+default via 192.168.1.1
+```
+
+---
+
+## Key Notes
+
+* Do **not** use `/etc/dhcpcd.conf` on NetworkManager-based Raspberry Pi OS images.
+* Static IP must be set via `nmcli` or netplan YAML.
+* Restarting `dhcpcd` will fail if the service is not installed.
+
+---
+
+## Reference Marker
+
+Internal reference keyword stored: **START1**
+
+
 **End of Guide**
