@@ -172,13 +172,16 @@ sudo nano /etc/telegraf/telegraf.conf
 ## 10. Install Grafana (Dashboard Visualization)
 
 ```bash
-sudo apt install -y apt-transport-https software-properties-common
-wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
-echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://packages.grafana.com/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/grafana.gpg
+
+echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://packages.grafana.com/oss/deb stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+
 sudo apt update
 sudo apt install grafana -y
 sudo systemctl enable grafana-server
 sudo systemctl start grafana-server
+systemctl status grafana-server
 ```
 
 - Access Grafana at: `http://<pi-ip>:3000`
