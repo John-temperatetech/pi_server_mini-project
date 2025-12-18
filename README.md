@@ -498,17 +498,20 @@ sudo nmcli connection show
 ```
 
 Relevant connection:
-
+Wifi 
 ```
 netplan-wlan0-temperatetech24g  wifi  wlan0
 ```
-
+Ethernet
+```
+Wired connection 1 ethernet eth0
+```
 ---
 
 ## Correct Method: NetworkManager (nmcli)
 
 Apply static IPv4 configuration:
-
+Wifi
 ```
 sudo nmcli connection modify "netplan-wlan0-temperatetech24g" \
   ipv4.method manual \
@@ -516,7 +519,15 @@ sudo nmcli connection modify "netplan-wlan0-temperatetech24g" \
   ipv4.gateway 192.168.1.1 \
   ipv4.dns "192.168.1.1 8.8.8.8"
 ```
+Ethernet
 
+```
+sudo nmcli connection modify "Wired connection 1" \
+  ipv4.method manual \
+  ipv4.addresses 192.168.1.12/24 \
+  ipv4.gateway 192.168.1.1 \
+  ipv4.dns "192.168.1.1 8.8.8.8"
+```
 Bring connection down and up (required):
 
 ```
@@ -524,6 +535,10 @@ sudo nmcli connection down "netplan-wlan0-temperatetech24g"
 sudo nmcli connection up "netplan-wlan0-temperatetech24g"
 ```
 
+```
+sudo nmcli connection down "Wired connection 1"
+sudo nmcli connection up "Wired connection 1"
+```
 ---
 
 ## Verification
@@ -532,6 +547,9 @@ Check assigned IP:
 
 ```
 ip addr show wlan0
+```
+```
+ip addr show eth0
 ```
 
 Expected:
